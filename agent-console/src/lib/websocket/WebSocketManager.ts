@@ -1,4 +1,7 @@
 import { ServerMessage, ClientMessage } from '../protocol/types';
+import { SequenceBuffer } from '../protocol/SequenceBuffer';
+import { EventProcessor } from '../protocol/EventProcessor';
+import { storeEventBridge } from '../protocol/StoreEventBridge';
 
 type EventHandler = (event: ServerMessage) => void;
 type StatusHandler = (connected: boolean) => void;
@@ -9,9 +12,19 @@ export class WebSocketManager {
   private eventHandlers: Set<EventHandler> = new Set();
   private statusHandlers: Set<StatusHandler> = new Set();
   private connected: boolean = false;
+  
+  private seqBuffer: SequenceBuffer;
+  private eventProcessor: EventProcessor;
 
   constructor(url: string = 'ws://localhost:4747/ws') {
     this.url = url;
+    
+    // Initialize protocol components
+    this.seqBuffer = new SequenceBuffer();
+    this.eventProcessor = new EventProcessor(
+      (msg) => this.send(msg),
+      (event) => this.notifyHandlers(event)
+    );
   }
 
   public connect(): void {
@@ -23,22 +36,37 @@ export class WebSocketManager {
     this.ws = new WebSocket(this.url);
 
     this.ws.onopen = () => {
-      console.log('[WS] Connected');
+      console.log('[WS_CONNECTED]');
       this.setConnected(true);
+      // For a fresh connection we would normally reset the buffer here if reconnects weren't disabled,
+      // but we will keep it simple for this phase.
     };
 
     this.ws.onmessage = (messageEvent) => {
       try {
         const data = JSON.parse(messageEvent.data as string) as ServerMessage;
-        console.log(`[EVENT] ${data.type} seq=${data.seq}`);
-        this.notifyHandlers(data);
+        
+        // PINGs must be responded to immediately, never buffer them
+        if (data.type === 'PING') {
+          this.eventProcessor.process(data);
+          return;
+        }
+
+        // Pass through SequenceBuffer to get ordered and deduplicated events
+        const readyEvents = this.seqBuffer.push(data);
+        
+        // Process each ready event
+        for (const event of readyEvents) {
+          this.eventProcessor.process(event);
+        }
+        
       } catch (error) {
         console.error('[WS] Failed to parse message:', error);
       }
     };
 
     this.ws.onclose = () => {
-      console.log('[WS] Disconnected');
+      console.log('[WS_DISCONNECTED]');
       this.setConnected(false);
       this.ws = null;
     };
@@ -65,6 +93,7 @@ export class WebSocketManager {
   }
 
   public sendUserMessage(content: string): void {
+    this.seqBuffer.reset();
     this.send({ type: 'USER_MESSAGE', content });
   }
 
@@ -88,6 +117,7 @@ export class WebSocketManager {
     if (this.connected !== status) {
       this.connected = status;
       this.statusHandlers.forEach((handler) => handler(status));
+      storeEventBridge.handleConnectionState(status);
     }
   }
 

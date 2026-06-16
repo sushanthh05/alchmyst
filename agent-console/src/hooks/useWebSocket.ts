@@ -33,7 +33,7 @@ export function useWebSocket() {
     return () => {
       unsubscribeStatus();
       unsubscribeMessage();
-      wsManager.disconnect();
+      // Intentionally omitting wsManager.disconnect() to avoid breaking active sockets on rerenders/strict mode
     };
   }, []);
 

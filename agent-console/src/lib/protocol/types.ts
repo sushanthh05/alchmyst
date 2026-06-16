@@ -6,24 +6,28 @@ export interface BaseServerMessage {
 export interface TokenMessage extends BaseServerMessage {
   type: 'TOKEN';
   text: string;
+  stream_id: string;
 }
 
 export interface ToolCallMessage extends BaseServerMessage {
   type: 'TOOL_CALL';
-  toolName: string;
+  call_id: string;
+  tool_name: string;
   args: unknown;
+  stream_id: string;
 }
 
 export interface ToolResultMessage extends BaseServerMessage {
   type: 'TOOL_RESULT';
-  toolName: string;
+  call_id: string;
   result: unknown;
+  stream_id: string;
 }
 
 export interface ContextSnapshotMessage extends BaseServerMessage {
   type: 'CONTEXT_SNAPSHOT';
-  contextId: string;
-  snapshot: unknown;
+  context_id: string;
+  data: unknown;
 }
 
 export interface PingMessage extends BaseServerMessage {
@@ -33,6 +37,7 @@ export interface PingMessage extends BaseServerMessage {
 
 export interface StreamEndMessage extends BaseServerMessage {
   type: 'STREAM_END';
+  stream_id: string;
 }
 
 export interface ErrorMessage extends BaseServerMessage {
@@ -65,7 +70,7 @@ export interface PongMessage extends BaseClientMessage {
 
 export interface ToolAckMessage extends BaseClientMessage {
   type: 'TOOL_ACK';
-  toolName: string;
+  call_id: string;
 }
 
 export interface ResumeMessage extends BaseClientMessage {

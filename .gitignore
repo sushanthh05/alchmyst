@@ -1,0 +1,14 @@
+# Global ignores
+node_modules/
+.DS_Store
+.env*
+.vscode/
+.idea/
+
+# Build artifacts
+dist/
+build/
+.next/
+out/
+coverage/
+node_modules/

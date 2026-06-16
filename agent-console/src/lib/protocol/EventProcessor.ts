@@ -1,5 +1,6 @@
 import { ServerMessage, ClientMessage } from './types';
 import { storeEventBridge } from './StoreEventBridge';
+import { timelineBridge } from './TimelineBridge';
 
 export class EventProcessor {
   constructor(
@@ -23,6 +24,9 @@ export class EventProcessor {
       
       // 3. Push into global state (this could fail if the payload is malformed, so it's safely in a try/catch)
       storeEventBridge.handleEvent(event);
+      
+      // 4. Pass to Timeline logic
+      timelineBridge.handleEvent(event);
       
     } catch (error) {
       console.error(`[PROCESSOR] Error processing event ${event.type}:`, error);

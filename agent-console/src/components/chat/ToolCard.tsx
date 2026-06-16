@@ -1,17 +1,39 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { ToolBlock as ToolBlockType } from '../../store/agentStore';
+import { useSelectionStore } from '../../store/selectionStore';
 import { toolAckManager } from '../../lib/protocol/ToolAckManager';
 
 export function ToolCard({ block }: { block: ToolBlockType }) {
+  const select = useSelectionStore((state) => state.select);
+  const selectedId = useSelectionStore((state) => state.selectedId);
+  const selectedSource = useSelectionStore((state) => state.selectedSource);
+  const ref = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    // Critical: Acknowledge the tool call as soon as the component renders/becomes visible
+    // Acknowledge tool call immediately upon rendering
     toolAckManager.acknowledge(block.callId);
   }, [block.callId]);
 
+  useEffect(() => {
+    if (selectedId === block.callId && selectedSource === 'timeline') {
+      ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [selectedId, selectedSource, block.callId]);
+
+  const isSelected = selectedId === block.callId;
+
   return (
-    <div className="bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 p-4 rounded-md my-3 font-mono text-sm">
+    <div 
+      ref={ref}
+      onClick={() => select(block.callId, 'chat')}
+      className={`p-4 border rounded-lg shadow-sm mb-2 transition-all cursor-pointer ${
+        isSelected 
+          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-md ring-2 ring-blue-500 ring-opacity-50' 
+          : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600'
+      }`}
+    >
       <div className="font-semibold text-blue-600 dark:text-blue-400 mb-2">
         {block.toolName}
       </div>

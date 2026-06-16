@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { ChatPanel } from '../components/chat/ChatPanel';
+import { TimelinePanel } from '../components/timeline/TimelinePanel';
 
 export default function DebugPage() {
   const { connected, lastEvent, totalEvents, lastSeq, sendUserMessage } = useWebSocket();
@@ -44,36 +45,8 @@ export default function DebugPage() {
         </div>
       </div>
 
-      {/* Right side: Debug Panel */}
-      <div className="flex-1 flex flex-col min-h-0 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-6 flex-shrink-0">
-        <h2 className="text-xl font-bold mb-6">Debug Panel</h2>
-        
-        <div className="space-y-6">
-          <div>
-            <span className="font-semibold block text-gray-500 dark:text-gray-400 text-sm mb-1">Connection</span>
-            <span className={`font-medium ${connected ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-              {connected ? 'Connected' : 'Disconnected'}
-            </span>
-          </div>
-          
-          <div>
-            <span className="font-semibold block text-gray-500 dark:text-gray-400 text-sm mb-1">Processed Events</span>
-            <span className="font-mono text-lg">{totalEvents}</span>
-          </div>
-
-          <div>
-            <span className="font-semibold block text-gray-500 dark:text-gray-400 text-sm mb-1">Last Sequence</span>
-            <span className="font-mono text-lg">{lastSeq !== null ? lastSeq : '-'}</span>
-          </div>
-
-          <div>
-            <span className="font-semibold block text-gray-500 dark:text-gray-400 text-sm mb-1">Last Event Type</span>
-            <span className="font-mono bg-white dark:bg-gray-800 border dark:border-gray-700 px-3 py-1 rounded inline-block shadow-sm">
-              {lastEvent || 'None'}
-            </span>
-          </div>
-        </div>
-      </div>
+      {/* Right side: Timeline Panel */}
+      <TimelinePanel />
     </main>
   );
 }

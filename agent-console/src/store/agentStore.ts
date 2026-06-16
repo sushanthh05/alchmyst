@@ -25,10 +25,25 @@ export interface Message {
   blocks: Block[];
 }
 
+export interface TimelineEvent {
+  id: string;
+  seq: number;
+  type: string;
+  timestamp: number;
+  content?: string;
+  relatedId?: string;
+  tokenCount?: number;
+  durationMs?: number;
+}
+
 interface AgentState {
   messages: Message[];
   contexts: any[]; // To be expanded in a future phase
   connectionState: 'connected' | 'disconnected';
+  
+  timelineEvents: TimelineEvent[];
+  timelineFilter: string;
+  timelineSearch: string;
 
   createStream: (streamId: string) => void;
   appendToken: (streamId: string, text: string) => void;
@@ -36,6 +51,9 @@ interface AgentState {
   completeToolCall: (callId: string, result: Record<string, unknown>) => void;
   completeStream: (streamId: string) => void;
   setConnectionState: (state: 'connected' | 'disconnected') => void;
+  addTimelineEvent: (event: TimelineEvent) => void;
+  setTimelineFilter: (filter: string) => void;
+  setTimelineSearch: (search: string) => void;
   reset: () => void;
 }
 
@@ -43,6 +61,9 @@ export const useAgentStore = create<AgentState>((set) => ({
   messages: [],
   contexts: [],
   connectionState: 'disconnected',
+  timelineEvents: [],
+  timelineFilter: 'All',
+  timelineSearch: '',
 
   createStream: (streamId) =>
     set((state) => {
@@ -152,5 +173,17 @@ export const useAgentStore = create<AgentState>((set) => ({
 
   setConnectionState: (connectionState) => set({ connectionState }),
 
-  reset: () => set({ messages: [], contexts: [], connectionState: 'disconnected' }),
+  addTimelineEvent: (event) => set((state) => ({
+    timelineEvents: [...state.timelineEvents, event]
+  })),
+
+  setTimelineFilter: (timelineFilter) => set({ timelineFilter }),
+  setTimelineSearch: (timelineSearch) => set({ timelineSearch }),
+
+  reset: () => set({ 
+    messages: [], 
+    contexts: [], 
+    connectionState: 'disconnected',
+    timelineEvents: []
+  }),
 }));

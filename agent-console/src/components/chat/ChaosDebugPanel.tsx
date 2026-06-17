@@ -8,10 +8,6 @@ export function ChaosDebugPanel() {
   const metrics = useAgentStore((state) => state.debugMetrics);
   const [isExpanded, setIsExpanded] = useState(false);
 
-  if (process.env.NODE_ENV !== 'development') {
-    return null;
-  }
-
   return (
     <div className="bg-[var(--panel)] border-t border-[var(--border-color)]">
       <button 

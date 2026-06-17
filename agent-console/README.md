@@ -94,17 +94,14 @@ npm run dev
 
 ## Screenshots
 
-### Main Interface
-*(Placeholder: Insert screenshot of the main chat, timeline, and context interface)*
+### Main Interface & Chat Flow
+![Main Interface & Chat Flow](docs/screenshot-chat-toolcall.png.png)
 
 ### Trace Timeline
-*(Placeholder: Insert screenshot of the timeline filtering system)*
+![Trace Timeline](docs/screenshot-timeline.png.png)
 
-### Context Diff Viewer
-*(Placeholder: Insert screenshot of the JSON diff viewer)*
-
-### Chaos Mode Debug Panel
-*(Placeholder: Insert screenshot of the green matrix chaos HUD)*
+### Context Diff Viewer & Chaos Diagnostics
+![Context Diff Viewer & Chaos Diagnostics](docs/screenshot-context-diff.png.png)
 
 ## Project Structure
 

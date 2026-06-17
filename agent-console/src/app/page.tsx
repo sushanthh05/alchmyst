@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { ChatPanel } from '../components/chat/ChatPanel';
 import { TimelinePanel } from '../components/timeline/TimelinePanel';
+import { ContextPanel } from '../components/context/ContextPanel';
 
 export default function DebugPage() {
   const { connected, lastEvent, totalEvents, lastSeq, sendUserMessage } = useWebSocket();
@@ -45,8 +46,11 @@ export default function DebugPage() {
         </div>
       </div>
 
-      {/* Right side: Timeline Panel */}
+      {/* Center: Timeline Panel */}
       <TimelinePanel />
+
+      {/* Right side: Context Panel */}
+      <ContextPanel />
     </main>
   );
 }

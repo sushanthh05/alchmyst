@@ -28,6 +28,11 @@ export class StoreEventBridge {
         store.completeToolCall(event.call_id, event.result as Record<string, unknown>);
         break;
 
+      case 'CONTEXT_SNAPSHOT':
+        store.addContextSnapshot(event.context_id, event.data as Record<string, unknown>);
+        console.log(`[CONTEXT] Snapshot added context_id=${event.context_id}`);
+        break;
+
       case 'STREAM_END':
         store.completeStream(event.stream_id);
         break;

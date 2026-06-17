@@ -36,9 +36,22 @@ export interface TimelineEvent {
   durationMs?: number;
 }
 
+export interface ContextSnapshot {
+  id: string;
+  timestamp: number;
+  data: Record<string, unknown>;
+}
+
+export interface ContextHistory {
+  contextId: string;
+  snapshots: ContextSnapshot[];
+  currentIndex: number;
+}
+
 interface AgentState {
   messages: Message[];
-  contexts: any[]; // To be expanded in a future phase
+  contexts: ContextHistory[];
+  activeContextId: string | null;
   connectionState: 'connected' | 'disconnected';
   
   timelineEvents: TimelineEvent[];
@@ -54,12 +67,16 @@ interface AgentState {
   addTimelineEvent: (event: TimelineEvent) => void;
   setTimelineFilter: (filter: string) => void;
   setTimelineSearch: (search: string) => void;
+  addContextSnapshot: (contextId: string, data: Record<string, unknown>) => void;
+  setContextIndex: (contextId: string, index: number) => void;
+  setActiveContextId: (contextId: string | null) => void;
   reset: () => void;
 }
 
 export const useAgentStore = create<AgentState>((set) => ({
   messages: [],
   contexts: [],
+  activeContextId: null,
   connectionState: 'disconnected',
   timelineEvents: [],
   timelineFilter: 'All',
@@ -180,9 +197,57 @@ export const useAgentStore = create<AgentState>((set) => ({
   setTimelineFilter: (timelineFilter) => set({ timelineFilter }),
   setTimelineSearch: (timelineSearch) => set({ timelineSearch }),
 
+  addContextSnapshot: (contextId, data) => set((state) => {
+    const contexts = [...state.contexts];
+    let ctxIndex = contexts.findIndex(c => c.contextId === contextId);
+    
+    const snapshot: ContextSnapshot = {
+      id: Math.random().toString(36).substring(7),
+      timestamp: Date.now(),
+      data,
+    };
+
+    if (ctxIndex === -1) {
+      contexts.push({
+        contextId,
+        snapshots: [snapshot],
+        currentIndex: 0,
+      });
+    } else {
+      const history = { ...contexts[ctxIndex] };
+      history.snapshots = [...history.snapshots, snapshot];
+      history.currentIndex = history.snapshots.length - 1; // Auto-advance to newest
+      contexts[ctxIndex] = history;
+    }
+
+    return { 
+      contexts,
+      // Automatically make it the active context if it's new or updated
+      activeContextId: contextId 
+    };
+  }),
+
+  setContextIndex: (contextId, index) => set((state) => {
+    const contexts = [...state.contexts];
+    const ctxIndex = contexts.findIndex(c => c.contextId === contextId);
+    
+    if (ctxIndex !== -1) {
+      const history = { ...contexts[ctxIndex] };
+      if (index >= 0 && index < history.snapshots.length) {
+        history.currentIndex = index;
+        contexts[ctxIndex] = history;
+      }
+    }
+    
+    return { contexts };
+  }),
+
+  setActiveContextId: (activeContextId) => set({ activeContextId }),
+
   reset: () => set({ 
     messages: [], 
     contexts: [], 
+    activeContextId: null,
     connectionState: 'disconnected',
     timelineEvents: []
   }),

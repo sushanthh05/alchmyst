@@ -1,5 +1,6 @@
 import { useAgentStore } from '../../store/agentStore';
 import { ServerMessage } from './types';
+import { ConnectionState } from '../websocket/ConnectionState';
 
 export class StoreEventBridge {
   public handleEvent(event: ServerMessage): void {
@@ -43,9 +44,9 @@ export class StoreEventBridge {
     }
   }
 
-  public handleConnectionState(connected: boolean): void {
+  public handleConnectionState(state: ConnectionState): void {
     const store = useAgentStore.getState();
-    store.setConnectionState(connected ? 'connected' : 'disconnected');
+    store.setConnectionState(state);
   }
 }
 

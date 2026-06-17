@@ -3,9 +3,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { wsManager } from '../lib/websocket/WebSocketManager';
 import { ServerMessage } from '../lib/protocol/types';
+import { ConnectionState } from '../lib/websocket/ConnectionState';
 
 export function useWebSocket() {
-  const [connected, setConnected] = useState(false);
+  const [connectionState, setConnectionState] = useState<ConnectionState>('DISCONNECTED');
   const [lastEvent, setLastEvent] = useState<string | null>(null);
   const [totalEvents, setTotalEvents] = useState(0);
   const [lastSeq, setLastSeq] = useState<number | null>(null);
@@ -13,7 +14,7 @@ export function useWebSocket() {
 
   useEffect(() => {
     const unsubscribeStatus = wsManager.onStatusChange((status) => {
-      setConnected(status);
+      setConnectionState(status);
     });
 
     const unsubscribeMessage = wsManager.onMessage((event) => {
@@ -41,5 +42,5 @@ export function useWebSocket() {
     wsManager.sendUserMessage(content);
   }, []);
 
-  return { connected, lastEvent, totalEvents, lastSeq, recentEvents, sendUserMessage };
+  return { connectionState, lastEvent, totalEvents, lastSeq, recentEvents, sendUserMessage };
 }

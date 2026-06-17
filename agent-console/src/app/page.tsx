@@ -5,13 +5,16 @@ import { useWebSocket } from '../hooks/useWebSocket';
 import { ChatPanel } from '../components/chat/ChatPanel';
 import { TimelinePanel } from '../components/timeline/TimelinePanel';
 import { ContextPanel } from '../components/context/ContextPanel';
+import { ChaosDebugPanel } from '../components/chat/ChaosDebugPanel';
 
 export default function DebugPage() {
-  const { connected, lastEvent, totalEvents, lastSeq, sendUserMessage } = useWebSocket();
+  const { connectionState, lastEvent, totalEvents, lastSeq, sendUserMessage } = useWebSocket();
   const [inputValue, setInputValue] = useState('');
 
+  const isConnected = connectionState === 'CONNECTED';
+
   const handleSend = () => {
-    if (inputValue.trim() && connected) {
+    if (inputValue.trim() && isConnected) {
       sendUserMessage(inputValue);
       setInputValue('');
     }
@@ -19,6 +22,7 @@ export default function DebugPage() {
 
   return (
     <main className="p-8 font-sans max-w-6xl mx-auto text-gray-900 dark:text-gray-100 flex flex-col md:flex-row gap-8 h-screen max-h-screen">
+      <ChaosDebugPanel />
       
       {/* Left side: Chat Panel */}
       <div className="flex-[2] flex flex-col min-h-0">
@@ -34,12 +38,12 @@ export default function DebugPage() {
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            disabled={!connected}
+            disabled={!isConnected}
           />
           <button
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded font-medium disabled:opacity-50 transition-colors shadow-sm"
             onClick={handleSend}
-            disabled={!connected}
+            disabled={!isConnected}
           >
             Send
           </button>

@@ -1,36 +1,134 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Agent Console
 
-## Getting Started
+## Project Overview
 
-First, run the development server:
+The **Agent Console** is a Next.js 14 + TypeScript web application designed to connect to an AI agent backend over WebSockets. It provides a robust, real-time visualization of agent activity, engineered with a strict protocol-driven architecture. 
+
+Built to withstand aggressive network hostility, the Agent Console reliably renders complex AI generation streams, manages tool execution lifecycles, and recovers gracefully from connection drops.
+
+## Architecture
+
+The application is built on a highly decoupled unidirectional data flow, ensuring that the UI remains a pure reflection of the deterministic protocol state:
+
+`WebSocket` → `SequenceBuffer` → `EventProcessor` → `Zustand Store` → `UI`
+
+1. **WebSocket**: The raw network layer, instantly handling critical protocol responses (like `TOOL_ACK` and `PING/PONG`) to satisfy backend timeouts before any UI logic runs.
+2. **SequenceBuffer**: A strict ordering layer that buffers out-of-order packets and releases them sequentially.
+3. **EventProcessor**: The deduplication and state-bridging layer that ensures idempotent processing.
+4. **Zustand Store**: The global state management that holds the active chat, timeline, and context snapshots.
+5. **UI**: React components that reactively render the state.
+
+## Features
+
+### 1. Streaming Chat
+- **Incremental Token Rendering**: Smoothly renders raw AI tokens as they stream in.
+- **Mid-Stream Interruptions**: Pauses text generation seamlessly when the agent decides to invoke a tool.
+- **Tool Result Continuation**: Resumes the text stream organically once tool results are received.
+
+### 2. Agent Trace Timeline
+- **Event Grouping**: Consolidates raw tokens into logical bursts.
+- **Filtering & Search**: Instantly drill down into specific event types (`TOOL_CALL`, `CONTEXT_SNAPSHOT`, `ERROR`).
+- **Deep Linking**: Click events in the timeline to auto-scroll and highlight the corresponding UI elements in the chat.
+
+### 3. Context Inspector
+- **JSON Tree Viewer**: Deeply inspect arbitrary state dumps from the backend.
+- **Snapshot History**: Navigate through time to see how the agent's context evolved.
+- **Diff Visualization**: Automatically highlights added, modified, and removed fields between sequence steps.
+
+### 4. Reconnection & Recovery
+- **Exponential Backoff**: Intelligently scales reconnection attempts to prevent network spam.
+- **RESUME Protocol**: Informs the backend of the exact sequence cursor (`highestProcessedSeq`) the client currently holds.
+- **Replay Handling**: Flawlessly absorbs bursts of replayed historical events.
+- **Deduplication**: Silently drops overlapping events caused by race conditions during reconnects.
+
+### 5. Chaos Mode Survival
+The application is hardened against simulated network hostility:
+- **Out-of-Order Messages**: Buffered and delayed until prerequisites arrive.
+- **Duplicates**: Hashed and dropped.
+- **Latency Spikes**: Protocol handshakes occur asynchronously ahead of UI renders to beat server timeouts.
+- **Connection Drops**: Instantly triggers the recovery sequence without losing state.
+- **Corrupt Heartbeats**: Tolerates and negotiates malformed `PING` payloads.
+
+## State Flow
+All incoming messages are parsed and pushed into the `SequenceBuffer`. If an event is out-of-order, it halts the pipeline until the missing packets are received. Once ordered, the `EventProcessor` ensures the event has not been seen before. Finally, `StoreEventBridge` and `TimelineBridge` synchronously map the raw event into the Zustand store, triggering the React UI to update.
+
+## Installation
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Clone the repository
+git clone <repository-url>
+
+# Install dependencies
+cd agent-console
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Running Normal Mode
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+To run the application with a stable connection to the agent backend:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+# Terminal 1: Start the backend server
+cd agent-server
+npm start
 
-## Learn More
+# Terminal 2: Start the frontend console
+cd agent-console
+npm run dev
+```
+Navigate to `http://localhost:3000`
 
-To learn more about Next.js, take a look at the following resources:
+## Running Chaos Mode
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+To stress-test the application against extreme network conditions (packet loss, latency, reordering):
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+# Terminal 1: Start the backend server in Chaos Mode
+cd agent-server
+npm start -- --mode chaos
 
-## Deploy on Vercel
+# Terminal 2: Start the frontend console
+cd agent-console
+npm run dev
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Screenshots
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Main Interface
+*(Placeholder: Insert screenshot of the main chat, timeline, and context interface)*
+
+### Trace Timeline
+*(Placeholder: Insert screenshot of the timeline filtering system)*
+
+### Context Diff Viewer
+*(Placeholder: Insert screenshot of the JSON diff viewer)*
+
+### Chaos Mode Debug Panel
+*(Placeholder: Insert screenshot of the green matrix chaos HUD)*
+
+## Project Structure
+
+```text
+src/
+├── app/                  # Next.js App Router (Layout, Pages)
+├── components/           # React Components
+│   ├── chat/             # Chat Panel, Tool Cards, Input
+│   ├── timeline/         # Trace Timeline, Filters
+│   └── context/          # Context Inspector, Diff Viewer
+├── store/                # Zustand State Stores
+├── lib/                  
+│   ├── websocket/        # WebSocketManager, Connection State
+│   └── protocol/         # SequenceBuffer, EventProcessor, Bridges
+└── hooks/                # React Hooks (useWebSocket)
+```
+
+## Protocol Compliance
+The Agent Console strictly complies with the following backend protocol expectations:
+- Maintains a 1:1 monotonically increasing `seq` state.
+- Synchronously acknowledges `TOOL_CALL` with `TOOL_ACK` to satisfy 5s execution barriers.
+- Synchronously echoes `PING` with `PONG` (including challenges) to satisfy 3s heartbeat barriers.
+
+## Future Improvements
+- **Persistent Storage**: Save agent sessions to `localStorage` or IndexedDB for cross-refresh persistence.
+- **Virtualization**: Implement windowing in the Trace Timeline to comfortably support 10,000+ events.
+- **Custom Themes**: Allow dynamic switching between light, dark, and high-contrast modes.

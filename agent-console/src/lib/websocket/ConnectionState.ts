@@ -1,0 +1,1 @@
+export type ConnectionState = 'CONNECTING' | 'CONNECTED' | 'RECONNECTING' | 'RESUMING' | 'DISCONNECTED';

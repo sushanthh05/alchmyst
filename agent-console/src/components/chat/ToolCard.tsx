@@ -3,18 +3,12 @@
 import { useEffect, useRef } from 'react';
 import { ToolBlock as ToolBlockType } from '../../store/agentStore';
 import { useSelectionStore } from '../../store/selectionStore';
-import { toolAckManager } from '../../lib/protocol/ToolAckManager';
 
 export function ToolCard({ block }: { block: ToolBlockType }) {
   const select = useSelectionStore((state) => state.select);
   const selectedId = useSelectionStore((state) => state.selectedId);
   const selectedSource = useSelectionStore((state) => state.selectedSource);
   const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    // Acknowledge tool call immediately upon rendering
-    toolAckManager.acknowledge(block.callId);
-  }, [block.callId]);
 
   useEffect(() => {
     if (selectedId === block.callId && selectedSource === 'timeline') {

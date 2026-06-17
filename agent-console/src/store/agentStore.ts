@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { ConnectionState } from '../lib/websocket/ConnectionState';
 
 export interface TextBlock {
   id: string;
@@ -48,11 +49,20 @@ export interface ContextHistory {
   currentIndex: number;
 }
 
+export interface DebugMetrics {
+  highestProcessedSeq: number;
+  bufferedMessagesCount: number;
+  processedMessagesCount: number;
+  duplicateMessagesDropped: number;
+  outOfOrderMessagesBuffered: number;
+  reconnectCount: number;
+}
+
 interface AgentState {
   messages: Message[];
   contexts: ContextHistory[];
   activeContextId: string | null;
-  connectionState: 'connected' | 'disconnected';
+  connectionState: ConnectionState;
   
   timelineEvents: TimelineEvent[];
   timelineFilter: string;
@@ -70,17 +80,33 @@ interface AgentState {
   addContextSnapshot: (contextId: string, data: Record<string, unknown>) => void;
   setContextIndex: (contextId: string, index: number) => void;
   setActiveContextId: (contextId: string | null) => void;
+  setConnectionState: (state: ConnectionState) => void;
   reset: () => void;
+  
+  debugMetrics: DebugMetrics;
+  updateDebugMetrics: (metrics: Partial<DebugMetrics>) => void;
 }
 
 export const useAgentStore = create<AgentState>((set) => ({
   messages: [],
   contexts: [],
   activeContextId: null,
-  connectionState: 'disconnected',
+  connectionState: 'DISCONNECTED',
   timelineEvents: [],
   timelineFilter: 'All',
   timelineSearch: '',
+  debugMetrics: {
+    highestProcessedSeq: 0,
+    bufferedMessagesCount: 0,
+    processedMessagesCount: 0,
+    duplicateMessagesDropped: 0,
+    outOfOrderMessagesBuffered: 0,
+    reconnectCount: 0,
+  },
+
+  updateDebugMetrics: (metrics) => set((state) => ({
+    debugMetrics: { ...state.debugMetrics, ...metrics }
+  })),
 
   createStream: (streamId) =>
     set((state) => {
@@ -248,7 +274,7 @@ export const useAgentStore = create<AgentState>((set) => ({
     messages: [], 
     contexts: [], 
     activeContextId: null,
-    connectionState: 'disconnected',
+    connectionState: 'DISCONNECTED',
     timelineEvents: []
   }),
 }));

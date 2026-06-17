@@ -61,6 +61,91 @@ The exponential backoff and `RESUME` handshake successfully recovered state. Rep
 ### Corrupt Heartbeats
 The backend injected empty challenges into `PING` events. The client safely echoed these empty challenges via `PONG`, sustaining the connection without crashing or violating protocol schemas.
 
+### TOOL_ACK Timeout Recovery
+During chaos testing, the system intentionally introduced severe network disruptions including latency spikes, packet reordering, duplicate events, dropped connections, and corrupted heartbeat challenges.
+
+One observed scenario involved a `TOOL_ACK_TIMEOUT` event being generated before the corresponding `TOOL_ACK` arrived. Investigation showed that the timeout was caused by chaos-induced latency rather than a protocol or client-side bug.
+
+**Observed sequence:**
+1. `TOOL_CALL` emitted
+2. Chaos layer introduced multi-second latency spikes
+3. `TOOL_ACK_TIMEOUT` watchdog triggered
+4. Delayed `TOOL_ACK` eventually arrived
+5. Tool execution completed successfully
+6. Stream continued normally and reached `STREAM_END`
+
+This behavior was verified against server logs, which showed latency spikes occurring immediately before the timeout event.
+
+**Design Decision:**
+The client does not treat late acknowledgements as fatal failures. Instead, it continues processing when the delayed acknowledgement eventually arrives.
+
+This design was retained because:
+- It improves resilience under unstable network conditions.
+- It allows long-running tool operations to complete successfully.
+- It prevents unnecessary stream termination during transient delays.
+- It accurately reflects real-world distributed system behavior where acknowledgements may arrive late but still be valid.
+
+**Result:**
+Chaos testing successfully exercised timeout recovery paths.
+
+The system demonstrated:
+- Recovery from delayed acknowledgements
+- Continued stream processing after timeout events
+- Successful completion of agent responses
+- No protocol deadlocks
+- No client crashes
+- No manual intervention required
+
+Timeout events observed during chaos mode are therefore considered expected behavior rather than defects.
+
+### Intermittent STREAM_END Rendering Observation
+
+During extended chaos-mode testing, an intermittent issue was observed where some completed agent responses did not visibly render a STREAM_END entry in the timeline.
+
+Observed pattern:
+
+* Agent response content completed successfully.
+* Tool calls completed successfully.
+* TOOL_RESULT events arrived correctly.
+* The application remained responsive.
+* Subsequent requests continued to function normally.
+* Reconnection, replay, deduplication, and heartbeat handling continued working correctly.
+
+Example observed behavior:
+
+Analyze #1 → response completed, STREAM_END not visible
+Analyze #2 → response completed, STREAM_END visible
+Analyze #3 → response completed, STREAM_END not visible
+Analyze #4 → response completed, STREAM_END visible
+
+The issue was intermittent and non-deterministic.
+
+Investigation Findings:
+
+* Response generation completed successfully.
+* The WebSocket connection remained healthy.
+* The issue appeared isolated to STREAM_END handling or rendering.
+* Core protocol functionality remained operational.
+* The issue did not prevent future requests from executing.
+
+Potential Areas of Investigation:
+
+* Timeline rendering logic
+* Event grouping logic
+* STREAM_END deduplication
+* Sequence release ordering
+* React/Zustand synchronization edge cases
+
+Design Decision:
+
+Given the assignment timeline, effort was prioritized toward protocol correctness, replay recovery, tool-call handling, chaos-mode resilience, and state recovery.
+
+The issue was documented rather than aggressively refactored because a late-stage fix risked introducing regressions into the protocol layer.
+
+Conclusion:
+
+The application remains functionally usable despite this intermittent visualization issue. The observed behavior appears limited to STREAM_END visibility rather than message generation, replay, or recovery correctness.
+
 ## 7. Protocol Observations
 
 ### Observation 1: Stream Recovery Limitation

@@ -73,7 +73,6 @@ interface AgentState {
   addToolCall: (toolCall: { streamId: string; callId: string; toolName: string; args: Record<string, unknown> }) => void;
   completeToolCall: (callId: string, result: Record<string, unknown>) => void;
   completeStream: (streamId: string) => void;
-  setConnectionState: (state: 'connected' | 'disconnected') => void;
   addTimelineEvent: (event: TimelineEvent) => void;
   setTimelineFilter: (filter: string) => void;
   setTimelineSearch: (search: string) => void;

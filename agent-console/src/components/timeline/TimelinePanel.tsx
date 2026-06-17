@@ -11,7 +11,6 @@ export function TimelinePanel() {
   const search = useAgentStore((state) => state.timelineSearch);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom on new events
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -19,36 +18,39 @@ export function TimelinePanel() {
   }, [events]);
 
   const filteredEvents = events.filter(evt => {
-    // 1. Filter by Type
-    if (filter !== 'All' && evt.type !== filter) {
-      return false;
-    }
-    // 2. Filter by Search
+    if (filter !== 'All' && evt.type !== filter) return false;
     if (search.trim()) {
       const s = search.toLowerCase();
       const contentMatch = evt.content?.toLowerCase().includes(s);
       const typeMatch = evt.type.toLowerCase().includes(s);
       const relatedMatch = evt.relatedId?.toLowerCase().includes(s);
-      if (!contentMatch && !typeMatch && !relatedMatch) {
-        return false;
-      }
+      if (!contentMatch && !typeMatch && !relatedMatch) return false;
     }
     return true;
   });
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-6 flex-shrink-0">
-      <h2 className="text-xl font-bold mb-4 flex-shrink-0">Trace Timeline</h2>
+    <div className="flex flex-col min-h-0 bg-[var(--panel)] border border-[var(--border-color)] rounded-2xl shadow-sm overflow-hidden flex-shrink-0">
+      <div className="flex-shrink-0 px-4 py-3 border-b border-[var(--border-color)] bg-[rgba(255,255,255,0.02)]">
+        <h2 className="text-xs font-medium text-gray-400 uppercase tracking-wider">Trace Timeline</h2>
+      </div>
       
-      <TimelineFilters />
+      <div className="flex-shrink-0 px-4 pt-4 pb-2 border-b border-[var(--border-color)]">
+        <TimelineFilters />
+      </div>
 
       <div 
         ref={scrollRef}
-        className="flex-1 overflow-y-auto min-h-0 pr-2 space-y-1 scroll-smooth"
+        className="flex-1 overflow-y-auto min-h-0 p-4 space-y-2 scroll-smooth"
       >
         {filteredEvents.length === 0 ? (
-          <div className="text-center text-gray-400 italic mt-10 text-sm">
-            No events found.
+          <div className="flex flex-col items-center justify-center text-gray-500 h-full">
+            <div className="mb-3 opacity-30">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div className="text-sm">No trace events yet.</div>
           </div>
         ) : (
           filteredEvents.map(evt => <TimelineRow key={evt.id} event={evt} />)

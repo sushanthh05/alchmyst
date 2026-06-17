@@ -128,11 +128,6 @@ export class AgentServer {
       this.activeWs.close(1000, "replaced");
     }
 
-    this.stopHeartbeat();
-    this.abortStream();
-    this.activeWs = ws;
-    this.missedPongs = 0;
-
     // Generate new chaos config per connection
     if (this.mode === "chaos") {
       this.chaosConfig = generateChaosConfig();
@@ -217,7 +212,7 @@ export class AgentServer {
     const script = selectScript(content);
     console.log(`[agent-server] Selected script: ${script.name} (${script.id})`);
 
-    this.runScript(ws, script).catch((err) => {
+    this.runScript(script).catch((err) => {
       if (err.name !== "AbortError") {
         console.error("[agent-server] Script error:", err);
       }
@@ -283,11 +278,13 @@ export class AgentServer {
   private handleToolAck(callId: string): void {
     const pending = this.pendingAcks.get(callId);
     if (pending) {
+      console.log(`[agent-server] TOOL_ACK received for ${callId}`);
       this.logClient("TOOL_ACK", { call_id: callId }, "ok");
       clearTimeout(pending.timeout);
       this.pendingAcks.delete(callId);
       pending.resolve();
     } else {
+      console.log(`[agent-server] TOOL_ACK received for ${callId} (late/unexpected)`);
       this.logClient("TOOL_ACK", { call_id: callId }, "unexpected");
     }
   }
@@ -296,7 +293,7 @@ export class AgentServer {
   // Script execution engine
   // ─────────────────────────────────────────────────────────
 
-  private async runScript(ws: WebSocket, script: typeof import("./scripts.js").RESPONSE_SCRIPTS[number]): Promise<void> {
+  private async runScript(script: typeof import("./scripts.js").RESPONSE_SCRIPTS[number]): Promise<void> {
     const streamId = `s_${randomUUID().slice(0, 8)}`;
     const abort = new AbortController();
     this.streamAbortController = abort;
@@ -305,7 +302,6 @@ export class AgentServer {
     try {
       for (const event of script.events) {
         if (abort.signal.aborted) return;
-        if (ws.readyState !== WebSocket.OPEN) return;
 
         switch (event.kind) {
           case "context": {
@@ -315,7 +311,7 @@ export class AgentServer {
               context_id: event.context_id,
               data: event.data,
             };
-            await this.sendMessage(ws, msg);
+            await this.sendMessage(msg);
             break;
           }
 
@@ -326,7 +322,7 @@ export class AgentServer {
               text: event.text,
               stream_id: streamId,
             };
-            await this.sendMessage(ws, msg);
+            await this.sendMessage(msg);
             // Token delay: 30–80ms in normal, variable in chaos
             const baseDelay = 30 + Math.random() * 50;
             await this.delay(baseDelay, abort.signal);
@@ -345,7 +341,8 @@ export class AgentServer {
               args: event.args,
               stream_id: streamId,
             };
-            await this.sendMessage(ws, callMsg);
+            console.log(`[agent-server] TOOL_CALL started for ${callId}`);
+            await this.sendMessage(callMsg);
 
             // Wait for TOOL_ACK (with 5s timeout)
             await this.waitForAck(callId);
@@ -354,7 +351,6 @@ export class AgentServer {
             await this.delay(800 + Math.random() * 1200, abort.signal);
 
             if (abort.signal.aborted) return;
-            if (ws.readyState !== WebSocket.OPEN) return;
 
             // Send TOOL_RESULT
             const resultMsg: ServerMessage = {
@@ -364,7 +360,8 @@ export class AgentServer {
               result: event.result,
               stream_id: streamId,
             };
-            await this.sendMessage(ws, resultMsg);
+            console.log(`[agent-server] TOOL_RESULT emitted for ${callId}`);
+            await this.sendMessage(resultMsg);
 
             // Brief pause before resuming tokens
             await this.delay(200, abort.signal);
@@ -374,23 +371,26 @@ export class AgentServer {
       }
 
       // Stream end
-      if (!abort.signal.aborted && ws.readyState === WebSocket.OPEN) {
-        // Flush any remaining chaos buffer
-        if (this.chaosEngine) {
-          const remaining = this.chaosEngine.flush();
-          for (const msg of remaining) {
-            this.rawSend(ws, msg);
-          }
-        }
-
+      if (!abort.signal.aborted) {
         const endMsg: ServerMessage = {
           type: "STREAM_END",
           seq: this.nextSeq(),
           stream_id: streamId,
         };
-        await this.sendMessage(ws, endMsg);
+        console.log(`[agent-server] STREAM_END emitted for ${streamId}`);
+        await this.sendMessage(endMsg);
+        
+        // Flush any remaining chaos buffer AFTER STREAM_END
+        // to guarantee it is not permanently trapped.
+        if (this.chaosEngine) {
+          const remaining = this.chaosEngine.flush();
+          for (const msg of remaining) {
+            this.safeRawSend(msg);
+          }
+        }
       }
     } finally {
+      console.log(`[agent-server] stream cleanup executed for ${streamId}`);
       this.isStreaming = false;
       this.streamAbortController = null;
     }
@@ -400,11 +400,12 @@ export class AgentServer {
   // Message sending (with chaos if enabled)
   // ─────────────────────────────────────────────────────────
 
-  private async sendMessage(ws: WebSocket, message: ServerMessage): Promise<void> {
-    if (ws.readyState !== WebSocket.OPEN) return;
-
+  private async sendMessage(message: ServerMessage): Promise<void> {
     // Record in history (always the original, unchaoticised version)
     this.eventHistory.push(message);
+
+    const ws = this.activeWs;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
     if (this.chaosEngine) {
       // Check for connection drop
@@ -422,10 +423,21 @@ export class AgentServer {
         await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
       }
 
-      for (const msg of messages) {
-        this.rawSend(ws, msg);
+      // Fetch activeWs again in case connection dropped during latency spike
+      const currentWs = this.activeWs;
+      if (currentWs && currentWs.readyState === WebSocket.OPEN) {
+        for (const msg of messages) {
+          this.rawSend(currentWs, msg);
+        }
       }
     } else {
+      this.rawSend(ws, message);
+    }
+  }
+
+  private safeRawSend(message: ServerMessage): void {
+    const ws = this.activeWs;
+    if (ws && ws.readyState === WebSocket.OPEN) {
       this.rawSend(ws, message);
     }
   }
@@ -516,7 +528,7 @@ export class AgentServer {
     return new Promise<void>((resolve) => {
       const timeout = setTimeout(() => {
         if (this.pendingAcks.has(callId)) {
-          console.log(`[agent-server] TOOL_ACK timeout for ${callId}`);
+          console.log(`[agent-server] TOOL_ACK timeout fired for ${callId}`);
           this.logClient("TOOL_ACK_TIMEOUT", { call_id: callId }, "violation");
           this.pendingAcks.delete(callId);
           resolve();
@@ -537,9 +549,17 @@ export class AgentServer {
 
   private delay(ms: number, signal?: AbortSignal): Promise<void> {
     return new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(resolve, ms);
+      let onAbort: () => void;
+      
+      const timer = setTimeout(() => {
+        if (signal && onAbort) {
+          signal.removeEventListener("abort", onAbort);
+        }
+        resolve();
+      }, ms);
+
       if (signal) {
-        const onAbort = () => {
+        onAbort = () => {
           clearTimeout(timer);
           reject(new DOMException("Aborted", "AbortError"));
         };

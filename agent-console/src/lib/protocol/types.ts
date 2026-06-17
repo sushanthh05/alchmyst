@@ -45,6 +45,10 @@ export interface ErrorMessage extends BaseServerMessage {
   error: string;
 }
 
+export interface ReplayCompleteMessage extends BaseServerMessage {
+  type: 'REPLAY_COMPLETE';
+}
+
 export type ServerMessage =
   | TokenMessage
   | ToolCallMessage
@@ -52,7 +56,8 @@ export type ServerMessage =
   | ContextSnapshotMessage
   | PingMessage
   | StreamEndMessage
-  | ErrorMessage;
+  | ErrorMessage
+  | ReplayCompleteMessage;
 
 export interface BaseClientMessage {
   type: string;

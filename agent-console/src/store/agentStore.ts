@@ -22,6 +22,7 @@ export type Block = TextBlock | ToolBlock;
 export interface Message {
   id: string; // The streamId serves as the message ID
   streamId: string;
+  role?: 'user' | 'agent';
   status: 'streaming' | 'complete';
   blocks: Block[];
 }
@@ -68,6 +69,7 @@ interface AgentState {
   timelineFilter: string;
   timelineSearch: string;
 
+  addUserMessage: (content: string) => void;
   createStream: (streamId: string) => void;
   appendToken: (streamId: string, text: string) => void;
   addToolCall: (toolCall: { streamId: string; callId: string; toolName: string; args: Record<string, unknown> }) => void;
@@ -106,6 +108,26 @@ export const useAgentStore = create<AgentState>((set) => ({
   updateDebugMetrics: (metrics) => set((state) => ({
     debugMetrics: { ...state.debugMetrics, ...metrics }
   })),
+
+  addUserMessage: (content) =>
+    set((state) => ({
+      messages: [
+        ...state.messages,
+        {
+          id: `user_${Math.random().toString(36).substring(7)}`,
+          streamId: 'user',
+          role: 'user',
+          status: 'complete',
+          blocks: [
+            {
+              id: `ub_${Math.random().toString(36).substring(7)}`,
+              type: 'text',
+              content,
+            },
+          ],
+        },
+      ],
+    })),
 
   createStream: (streamId) =>
     set((state) => {

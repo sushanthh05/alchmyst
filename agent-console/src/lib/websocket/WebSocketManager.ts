@@ -162,6 +162,7 @@ export class WebSocketManager {
   public sendUserMessage(content: string): void {
     this.seqBuffer.reset();
     this.eventProcessor.reset();
+    useAgentStore.getState().addUserMessage(content);
     this.send({ type: 'USER_MESSAGE', content });
   }
 

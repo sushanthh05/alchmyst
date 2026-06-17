@@ -92,6 +92,11 @@ cd agent-console
 npm run dev
 ```
 
+### Chaos Mode Demo Video
+
+Watch a screen recording of the console in action, demonstrating automatic session recovery and packet sequence correction under extreme network hostility:
+[Chaos Mode Demo Video Link](https://1drv.ms/v/c/e3460adc3719f594/IQAUoTt9o3WySakodf-1i4BzAayeXW3bgNsPbmzBHFOC6Fg)
+
 ## Screenshots
 
 ### Main Interface & Chat Flow
